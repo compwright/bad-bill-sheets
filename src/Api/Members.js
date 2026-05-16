@@ -15,7 +15,7 @@ export default class Members {
             const name = $(el).find('.membername').text()
             const party = $(el).find('.info').text().match(/\(([R|D])\)/)[1]
             const code = bioUrl.searchParams.get('code')
-            members.set(district, {code, district, name, party, bioUrl, photoUrl})
+            members.set(district, {code, district, name, party, bioUrl: bioUrl.toString(), photoUrl: photoUrl.toString()})
         });
         return members
     }

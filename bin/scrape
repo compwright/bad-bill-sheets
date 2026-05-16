@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs';
+import path from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import { stringify } from 'csv-stringify/sync';
+
 import Api from '../src/Api/index.js';
 
 const api = new Api();
@@ -120,6 +124,54 @@ yargs(hideBin(process.argv))
             .demandCommand()
             .strict();
     })
+    .command(
+        'download <session> <datadir>',
+        'Download all legislative session data',
+        (yargs) => yargs
+            .positional('session', { type: 'number', describe: 'Session number' })
+            .positional('datadir', { type: 'string', describe: 'Data directory' }),
+        async (argv) => {
+            const senateDir = path.resolve(argv.datadir, String(argv.session), 'S')
+            fs.mkdirSync(path.resolve(senateDir, 'votes'), { recursive: true });
+
+            const houseDir = path.resolve(argv.datadir, String(argv.session), 'H')
+            fs.mkdirSync(path.resolve(houseDir, 'votes'), { recursive: true });
+
+            console.log('Downloading Senate members')
+            const senators = await api.members.list(argv.session, 'S');
+            fs.writeFileSync(
+                path.resolve(senateDir, 'members.csv'),
+                stringify(Array.from(senators.values()), {header:true})
+            );
+
+            console.log('Downloading House members')
+            const representatives = await api.members.list(argv.session, 'H');
+            fs.writeFileSync(
+                path.resolve(houseDir, 'members.csv'),
+                stringify(Array.from(representatives.values()), {header:true})
+            );
+
+            for (let [i, {code, name}] of senators) {
+                console.log('Downloading votes for', name)
+                const votes = await api.votes.list(argv.session, 'S', code);
+                fs.writeFileSync(
+                    path.resolve(senateDir, `votes/${code}.csv`),
+                    stringify(votes, {header:true})
+                );
+            }
+
+            for (let [i, {code, name}] of representatives) {
+                console.log('Downloading votes for', name)
+                const votes = await api.votes.list(argv.session, 'H', code);
+                fs.writeFileSync(
+                    path.resolve(houseDir, `votes/${code}.csv`),
+                    stringify(votes, {header:true})
+                );
+            }
+
+            console.log('Done')
+        }
+    )
     .demandCommand()
     .strict()
     .help()

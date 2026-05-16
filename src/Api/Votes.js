@@ -12,11 +12,12 @@ export default class Votes {
             body: new URLSearchParams({
                 type: 'SPONSOR',
                 chamber,
-                session,
-                sponsor: memberCode,
-                headerfooter: 0,
-                votetype: 2, // roll call
-                howvoted: 'Y'
+                session: String(session),
+                sponsor: String(memberCode),
+                headerfooter: '1',
+                votetype: '2', // roll call
+                howvoted: '',
+                bill_number: ''
             })
         })
         const html = await res.text()
@@ -80,7 +81,7 @@ export default class Votes {
             }
         });
 
-        return table.map(row => ({
+        const votes = table.map(row => ({
             id: row['Vote#'].id,
             timestamp: row['Date/Time'],
             voteUrl: row['Vote#'].url,
@@ -101,7 +102,11 @@ export default class Votes {
             // present: Number(row['Pres.']),
             // abstentions: Number(row['Abstain/Recused']),
             // total: Number(row['Total']),
-        }))
+        })).reverse()
+
+        votes.pop()
+
+        return votes
     }
 
     #normalizeBillNumber(bill) {
@@ -115,7 +120,7 @@ export default class Votes {
     }
 
     #normalizeDateTime(dateTime) {
-        return new TZDate(dateTime, 'America/New_York')
+        return new TZDate(dateTime, 'America/New_York').toISOString()
     }
 }
 
