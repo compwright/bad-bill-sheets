@@ -1,0 +1,31 @@
+{
+  "name": "bad-bill-sheets",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/compwright/bad-bill-sheets#readme",
+  "bugs": {
+    "url": "https://github.com/compwright/bad-bill-sheets/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://compwright@github.com/compwright/bad-bill-sheets.git"
+  },
+  "license": "MIT",
+  "author": "Jonathon Hill <jonathon@compwright.com>",
+  "type": "module",
+  "engines": {
+    "node": "^24.0"
+  },
+  "main": "src/",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@date-fns/tz": "^1.4.1",
+    "cheerio": "^1.2.0",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "lodash-es": "^4.18.1",
+    "yargs": "^18.0.0"
+  }
+}

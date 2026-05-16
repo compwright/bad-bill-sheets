@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+import Api from '../src/Api/index.js';
+
+const api = new Api();
+
+function print(result) {
+    if (result instanceof Map) {
+        console.log(JSON.stringify(Object.fromEntries(result), null, 2));
+    } else {
+        console.log(JSON.stringify(result, null, 2));
+    }
+}
+
+yargs(hideBin(process.argv))
+    .command('sessions', 'Sessions', (yargs) => {
+        yargs
+            .command('list', 'List legislative sessions', {}, async () => {
+                print(await api.sessions.list());
+            })
+            .command('current', 'List current legislative session', {}, async () => {
+                print(await api.sessions.current());
+            })
+            .command(
+                'year <session>',
+                'List current legislative session', 
+                (yargs) => yargs.positional('session', { type: 'number', describe: 'Session number' }),
+                async (argv) => {
+                    print(await api.sessions.year(argv.session));
+                }
+            )
+            .demandCommand()
+            .strict();
+    })
+    .command('members', 'Members', (yargs) => {
+        yargs
+            .command(
+                'list <session> <chamber>',
+                'List members by session and chamber',
+                (yargs) => yargs
+                    .positional('session', { type: 'number', describe: 'Session number' })
+                    .positional('chamber', { choices: ['S', 'H'], describe: 'Chamber (S=Senate, H=House)' }),
+                async (argv) => {
+                    print(await api.members.list(argv.session, argv.chamber));
+                }
+            )
+            .command(
+                'senators <session>',
+                'List senators for a session',
+                (yargs) => yargs
+                    .positional('session', { type: 'number', describe: 'Session number' }),
+                async (argv) => {
+                    print(await api.members.senators(argv.session));
+                }
+            )
+            .command(
+                'representatives <session>',
+                'List representatives for a session',
+                (yargs) => yargs
+                    .positional('session', { type: 'number', describe: 'Session number' }),
+                async (argv) => {
+                    print(await api.members.representatives(argv.session));
+                }
+            )
+            .command(
+                'detail <session> <chamber> <district>',
+                'List member detail by session, chamber, and district',
+                (yargs) => yargs
+                    .positional('session', { type: 'number', describe: 'Session number' })
+                    .positional('chamber', { choices: ['S', 'H'], describe: 'Chamber (S=Senate, H=House)' })
+                    .positional('district', { type: 'number', describe: 'District number' }),
+                async (argv) => {
+                    print(await api.members.detail(argv.session, argv.chamber, argv.district));
+                }
+            )
+            .command(
+                'code <session> <chamber> <district>',
+                'List member code by session, chamber, and district',
+                (yargs) => yargs
+                    .positional('session', { type: 'number', describe: 'Session number' })
+                    .positional('chamber', { choices: ['S', 'H'], describe: 'Chamber (S=Senate, H=House)' })
+                    .positional('district', { type: 'number', describe: 'District number' }),
+                async (argv) => {
+                    print(await api.members.code(argv.session, argv.chamber, argv.district));
+                }
+            )
+            .demandCommand()
+            .strict();
+    })
+    .command('votes', 'Votes', (yargs) => {
+        yargs
+            .command(
+                'list <session> <chamber> <member-code>',
+                'List votes by member',
+                (yargs) => yargs
+                    .positional('session', { type: 'number', describe: 'Session number' })
+                    .positional('chamber', { choices: ['S', 'H'], describe: 'Chamber (S=Senate, H=House)' })
+                    .positional('member-code', { type: 'number', describe: 'Member code' }),
+                async (argv) => {
+                    print(await api.votes.list(argv.session, argv.chamber, argv.memberCode));
+                }
+            )
+            .demandCommand()
+            .strict();
+    })
+    .command('bills', 'Bills', (yargs) => {
+        yargs
+            .command(
+                'sponsors <session> <bill>',
+                'List the sponsor and cosponsors of a bill by session and bill number',
+                (yargs) => yargs
+                    .positional('session', { type: 'number', describe: 'Session number' })
+                    .positional('bill', { type: 'string', describe: 'Bill number (i.e. S.123 or H.1234)' }),
+                async (argv) => {
+                    print(await api.bills.sponsors(argv.session, argv.bill));
+                }
+            )
+            .demandCommand()
+            .strict();
+    })
+    .demandCommand()
+    .strict()
+    .help()
+    .argv;
