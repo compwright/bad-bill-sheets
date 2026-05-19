@@ -1,0 +1,124 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dataDir = path.resolve(__dirname, '../data/126');
+
+function parseLine(line) {
+    const fields = [];
+    let i = 0;
+    while (i < line.length) {
+        if (line[i] === '"') {
+            i++;
+            let field = '';
+            while (i < line.length) {
+                if (line[i] === '"' && line[i + 1] === '"') {
+                    field += '"';
+                    i += 2;
+                } else if (line[i] === '"') {
+                    i++;
+                    break;
+                } else {
+                    field += line[i++];
+                }
+            }
+            fields.push(field);
+            if (line[i] === ',') i++;
+        } else {
+            const end = line.indexOf(',', i);
+            if (end === -1) {
+                fields.push(line.slice(i));
+                break;
+            } else {
+                fields.push(line.slice(i, end));
+                i = end + 1;
+            }
+        }
+    }
+    return fields;
+}
+
+function parseCsv(content) {
+    const lines = content.trim().split('\n');
+    const headers = parseLine(lines[0]);
+    return lines.slice(1).map(line => {
+        const values = parseLine(line);
+        return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
+    });
+}
+
+const badBillsContent = fs.readFileSync(path.resolve(dataDir, 'bad-bills'), 'utf-8');
+const badBills = new Map();
+for (const line of badBillsContent.trim().split('\n')) {
+    const match = line.match(/^(\S+)\s+(.+)$/);
+    if (match) {
+        badBills.set(match[1], match[2]);
+    }
+}
+
+function headingAnchor(text) {
+    return '#' + text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+}
+
+function processChamber(chamber, chamberLabel) {
+    const chamberDir = path.resolve(dataDir, chamber);
+    const members = parseCsv(fs.readFileSync(path.resolve(chamberDir, 'members.csv'), 'utf-8'));
+
+    const toc = [`- **${chamberLabel}**\n`];
+    const body = [`## ${chamberLabel}\n`];
+
+    for (const member of members) {
+        const votesFile = path.resolve(chamberDir, 'votes', `${member.code}.csv`);
+        if (!fs.existsSync(votesFile)) continue;
+
+        const votes = parseCsv(fs.readFileSync(votesFile, 'utf-8'));
+        const badVotes = votes
+            .filter(v => badBills.has(v.bill))
+            .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+        if (badVotes.length === 0) continue;
+
+        const heading = `${member.name} (${member.party}, District ${member.district})`;
+        toc.push(`  - [${heading}](${headingAnchor(heading)})`);
+
+        const byBill = Map.groupBy(badVotes, v => v.bill);
+
+        body.push(`### ${heading}\n`);
+        if (member.photoUrl) {
+            body.push(`![${member.name}](${member.photoUrl})\n`);
+        }
+        for (const [bill, billVotes] of byBill) {
+            const billName = badBills.get(bill);
+            const billUrl = billVotes[0]?.billUrl;
+            const billLink = billUrl ? ` ([bill](${billUrl}))` : '';
+            body.push(`#### ${bill} ${billName}${billLink}\n`);
+            for (const vote of billVotes) {
+                const question = vote.question || '(no motion recorded)';
+                const when = vote.timestamp
+                    ? new Date(vote.timestamp).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
+                    : '';
+                const outcome = vote.result ? `, ${vote.result}` : '';
+                const amendmentLink = vote.amendmentUrl ? ` ([amendment](${vote.amendmentUrl}))` : '';
+                const recordLink = vote.voteUrl ? ` ([record](${vote.voteUrl}))` : '';
+                body.push(`- ${when} ${question}: **${vote.vote}**${outcome}${amendmentLink}${recordLink}`);
+            }
+            body.push('');
+        }
+        body.push('');
+    }
+
+    return { toc: toc.join('\n'), body: body.join('\n') };
+}
+
+const senate = processChamber('S', 'Senate');
+const house = processChamber('H', 'House');
+
+process.stdout.write('# Bad Bill Voting Record\n\n');
+process.stdout.write('## Table of Contents\n\n');
+process.stdout.write(senate.toc + '\n');
+process.stdout.write(house.toc + '\n\n');
+process.stdout.write(senate.body + '\n');
+process.stdout.write(house.body + '\n');
